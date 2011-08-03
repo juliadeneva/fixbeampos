@@ -1,0 +1,18 @@
+Fixbeampos fixes coordinates in the main header of Mock psrfits files taken
+with ALFA up to 28 Jan. 2010. Up to that date, coordinates in the headers 
+and rows of side beam (beams 1-6) data files were not calculated correctly by
+the Mock data-writing software. Data files from beam 0 are fine. 
+
+Data with HDRVER of 3.43 or greater in the main header are not affected. 
+
+The program needs a beam 0 file--it will then extract the RA & DEC from its 
+main header and use a text file with beam offsets (alfa_offsets.tcl) to 
+calculate the side beam positions first in AZ,ZA, then transform to RA,DEC in
+the J2000 coordinate system. 
+
+Version number (HDRVER) in main header is updated to 3.429. Data with HDRVER
+ of 3.43 or greater are not changed. 
+
+TO DO:
+
+Fix RA, DEC, AZ, ZA, GL, and GB in each row of affected Mock data files. 
