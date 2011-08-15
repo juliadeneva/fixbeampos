@@ -5,14 +5,25 @@ the Mock data-writing software. Data files from beam 0 are fine.
 
 Data with HDRVER of 3.43 or greater in the main header are not affected. 
 
-The program needs a beam 0 file--it will then extract the RA & DEC from its 
-main header and use a text file with beam offsets (alfa_offsets.tcl) to 
-calculate the side beam positions first in AZ,ZA, then transform to RA,DEC in
-the J2000 coordinate system. 
+The program needs a beam 0 file--it will use the positions in its header and
+rows to calculate the correct positions of the side beams' headers and rows,
+and will correct the side beam files if they are present in the current
+directory. HDRVER in the main header of side beam files will be changed
+to 3.43. A new field FIXDATE will be added to the main header of side beam
+files to record the date on which they were corrected. 
 
-Version number (HDRVER) in main header is updated to 3.429. Data with HDRVER
- of 3.43 or greater are not changed. 
+Fields fixed in main header:
+HDRVER, RA, DEC, STT_CRD1, STT_CRD2, STP_CRD1, STP_CRD2 (the latter two pairs 
+of parameters are "start coordinates" and "stop coordinates", which are equal 
+to RA,DEC)
 
-TO DO:
+Fields fixed in rows:
+RA_SUB, DEC_SUB, TEL_AZ, TEL_ZEN, GLON_SUB, GLAT_SUB
 
-Fix RA, DEC, AZ, ZA, GL, and GB in each row of affected Mock data files. 
+The calculated RA, DEC, GL & GB for side beams based on beam 0 values are 
+within a few arcsec of actual positions (from tests on data where both header 
+and rows positions were correct for all beams). The calculated AZ & ZA may be 
+up to 1.5 arcmin from actual positions. This is most likely due to the fact 
+that the pointing model (which is mapped over AZ & ZA) is not taken into 
+account by this code, while it is used during observations to convert encoder 
+positions to the coordinates actually recorded in data files. 

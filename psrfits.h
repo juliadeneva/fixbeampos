@@ -87,8 +87,11 @@ struct subint {
     double feed_ang;        // Feed angle at subint centre (deg)
     double pos_ang;         // Position angle of feed at subint centre (deg)
     double par_ang;         // Parallactic angle at subint centre (deg)
-    double tel_az;          // Telescope azimuth at subint centre (deg)
-    double tel_zen;         // Telescope zenith angle at subint centre (deg)
+  //These are floats in the SUBINT table
+  //double tel_az;          // Telescope azimuth at subint centre (deg)
+  //double tel_zen;         // Telescope zenith angle at subint centre (deg)
+    float tel_az;          // Telescope azimuth at subint centre (deg)
+    float tel_zen;         // Telescope zenith angle at subint centre (deg)
     int bytes_per_subint;   // Number of bytes for one row of raw data
     int FITS_typecode;      // FITS data typecode as per CFITSIO
 
@@ -166,6 +169,6 @@ int psrfits_obs_mode(const char *obs_mode);
 
 // In read_psrfits.c
 int psrfits_open(struct psrfits *pf, int iomode);
-int psrfits_read_subint(struct psrfits *pf,int first);
+int psrfits_read_subint(struct psrfits *pf);
 
 #endif

@@ -160,7 +160,7 @@ int psrfits_open(struct psrfits *pf, int iomode)
  * next file when one ends.  Arrays should be allocated
  * outside this routine.
  */
-int psrfits_read_subint(struct psrfits *pf, int first)
+int psrfits_read_subint(struct psrfits *pf)
 {
 
     struct hdrinfo *hdr = &(pf->hdr);
@@ -217,9 +217,9 @@ int psrfits_read_subint(struct psrfits *pf, int first)
                   &(sub->pos_ang), NULL, status);
     fits_read_col(pf->fptr, TDOUBLE, pcol->par_ang, row, firstE, oneE, NULL,
                   &(sub->par_ang), NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, pcol->tel_az, row, firstE, oneE, NULL,
+    fits_read_col(pf->fptr, TFLOAT, pcol->tel_az, row, firstE, oneE, NULL,
                   &(sub->tel_az), NULL, status);
-    fits_read_col(pf->fptr, TDOUBLE, pcol->tel_zen, row, firstE, oneE, NULL,
+    fits_read_col(pf->fptr, TFLOAT, pcol->tel_zen, row, firstE, oneE, NULL,
                   &(sub->tel_zen), NULL, status);
     fits_read_col(pf->fptr, TFLOAT, pcol->dat_freq, row, firstE, nchan, NULL,
                   sub->dat_freqs, NULL, status);

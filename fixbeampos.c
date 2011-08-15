@@ -14,22 +14,25 @@
 int obs2mjd(char* dt);
 float ddmmss2deg(char* ddmmss, int issign);
 char* deg2ddmmss(float deg, int issign);
-void alfa_position(double ra, double dec, double lst, double epoch, double angle, double off1, double off2, int beam, double *pra, double *pdec );
+void alfa_position(double ra, double dec, double lst, double epoch, double angle, double off1, double off2, int beam, double *pra, double *pdec, double *paz, double *pza );
+void glgb(double radeg, double decdeg, double* gl, double* gb);
 
 int main(int argc, char** argv)
 {
   FILE* outfile;
-  int status, ii, beam, beamnum;
+  int status, ii, beam, beamnum, numrows, kk, rowcount;
   struct psrfits pfin;
   char *pc1, *pc2, *ibeam, *beamrastr, *beamdecstr;
   fitsfile *infits, *outfits;
   char rastr[24], decstr[24], obs_date[24], datecat[24], tmp[24], hdrver[24];
-  char frontend[24], backend[24];
+  char frontend[24], backend[24], outfilename[24];
   int stt_imjd, stt_smjd;
   float stt_offs, stt_lst, start_mjd, start_lst, current_time, mjd, secs;
   float rahh, decdd, hdrverf;
-  double beamrahh[7], beamdecdd[7];
+  double beamrahh[NUMFILES], beamdecdd[NUMFILES], beamaz, beamza;
   time_t currtime;
+  float* tel_az[NUMFILES], *tel_zen[NUMFILES];
+  double *ra_sub[NUMFILES], *dec_sub[NUMFILES], *glon_sub[NUMFILES], *glat_sub[NUMFILES];
 
   if (argc != 2) {
     printf("Usage: fixbeampos [beam0 psrfits file]\n");
@@ -39,10 +42,10 @@ int main(int argc, char** argv)
 
   // Open the input files
   status = 0;  //fits_close segfaults if this is not initialized
-  printf("Reading input data from:\n");
+  fprintf(stderr, "Reading input data from:\n");
   for (ii = 0; ii < NUMFILES; ii++) {
     if (ii == 0) {
-      printf("  '%s'\n", argv[ii+1]);
+      fprintf(stderr,"  '%s'\n", argv[ii+1]);
       //Get the file basename and number from command-line argument
       //(code taken from psrfits2fil)
       pc2 = strrchr(argv[ii+1], '.');      // at .fits
@@ -130,6 +133,7 @@ int main(int argc, char** argv)
       tmp[4] = '\0';
       tmp[7] = '\0';
       tmp[10] = '\0';
+      strcpy(datecat,"\0");
       strcat(datecat,tmp);
       strcat(datecat,&tmp[5]);
       strcat(datecat,&tmp[8]);
@@ -142,31 +146,83 @@ int main(int argc, char** argv)
       //Find RA & DEC as decimal hours and degrees, respectively
       //RA is a string of the form HH:MM:SS.SSSS
       //DEC is a string of the form +DD:MM:SS.SSSS
-      rahh = ddmmss2deg(rastr,0);
+      //rahh = ddmmss2deg(rastr,0);
       //printf("rahh: %f\n", rahh);
-      decdd = ddmmss2deg(decstr,1);
+      //decdd = ddmmss2deg(decstr,1);
       //printf("decdd: %f\n", decdd);
 
       //Move to SUBINT table
       fits_movnam_hdu(infits, BINARY_TBL, "SUBINT", 0, &pfin.status);
-      //printf("status: %d\n", pfin.status);
-      //Read ALFA rotation angle from first row
-      psrfits_read_subint(&pfin, 1);
-      //printf("feed_ang: %f pos_ang: %f  par_ang: %f\n", pfin.sub.feed_ang, pfin.sub.pos_ang, pfin.sub.par_ang);
+      //Get the number of rows
+      fits_read_key(infits, TINT, "NAXIS2", &numrows, NULL, &pfin.status);
+      //fprintf(stderr,"numrows: %d\n",numrows);
+      //Allocate coordinate arrays for all beams
+      for(kk=0; kk<NUMFILES; kk++) {
+	ra_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+	dec_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+	glon_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+	glat_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+	tel_az[kk] = (float*) malloc(sizeof(float) * numrows);
+	tel_zen[kk] = (float*) malloc(sizeof(float) * numrows);
+      }
+	
       
       outfile = fopen("beampos.out","w");
-      //Calculate the side beam positions
-      for(beam=1; beam<NUMFILES; beam++) {
-	alfa_position((double)rahh, (double)decdd, (double)start_lst, (double)current_time, (double)pfin.sub.feed_ang, 0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam]);
-	
-	beamrastr = deg2ddmmss(beamrahh[beam],0);
-	beamdecstr = deg2ddmmss(beamdecdd[beam],1);
-	
-	fprintf(outfile,"beam: %d  rahh: %f  %s  decdd: %f  %s\n", beam,beamrahh[beam], beamrastr, beamdecdd[beam], beamdecstr);
-	fprintf(stderr,"beam: %d  rahh: %f  %s  decdd: %f  %s\n", beam,beamrahh[beam], beamrastr, beamdecdd[beam], beamdecstr);
-      }
-      fclose(outfile);
+      rowcount = 0;
+      while (psrfits_read_subint(&pfin) == 0) {
+	fprintf(stderr, "Working on row %d\r", rowcount+1);
 
+	if(rowcount == 0)
+	  fprintf(outfile,"# b0az b0za b0ra b0dec b1az b1za b1ra b1dec, etc\n");
+
+	//printf("row: %d  feed_ang: %f  tel_az: %f tel_zen: %f ra_sub: %f dec_sub: %f\n", rowcount, pfin.sub.feed_ang, pfin.sub.tel_az, pfin.sub.tel_zen, pfin.sub.ra, pfin.sub.dec);
+	//NOTE: ra_sub is in degrees, while alfa_position wants the ra in hours
+	
+	// Save beam 0 position for debugging
+	//Save this row's RA, DEC, AZ & ZA
+	tel_az[0][rowcount] = pfin.sub.tel_az;
+	tel_zen[0][rowcount] = pfin.sub.tel_zen;
+	ra_sub[0][rowcount] = pfin.sub.ra;
+	dec_sub[0][rowcount] = pfin.sub.dec;
+	glon_sub[0][rowcount] = pfin.sub.glon;
+	glat_sub[0][rowcount] = pfin.sub.glat;
+
+	decdd = pfin.sub.dec;
+	rahh = pfin.sub.ra/360.0 * 24.0;
+
+	for(beam=1; beam<NUMFILES; beam++) {
+	  //alfa_position((double)rahh, (double)decdd, (double)start_lst, (double)current_time, (double)pfin.sub.feed_ang, 0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], &beamaz, &beamza);
+	  alfa_position((double)rahh, (double)decdd, (double)pfin.sub.lst/3600.0, (double)current_time, (double)pfin.sub.feed_ang, 0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], &beamaz, &beamza);
+	  
+	  //Save this row's RA, DEC, AZ & ZA, GL & GB
+	  tel_az[beam][rowcount] = (float)beamaz;
+	  tel_zen[beam][rowcount] = (float)beamza;
+	  ra_sub[beam][rowcount] = beamrahh[beam]/24.0 * 360.0;
+	  dec_sub[beam][rowcount] = beamdecdd[beam];
+
+	  glgb(ra_sub[beam][rowcount], dec_sub[beam][rowcount], &glon_sub[beam][rowcount],&glat_sub[beam][rowcount]);
+
+	  //Convert beam RA & DEC from 1st row to strings to put in side 
+	  //beam main HDU
+	  if(rowcount == 0) {
+	    beamrastr = deg2ddmmss(beamrahh[beam],0);
+	    beamdecstr = deg2ddmmss(beamdecdd[beam],1);
+	  }
+	}
+	      
+	//Print positions for all beams to debugging file
+	for(beam=0; beam<NUMFILES; beam++) {
+	  fprintf(outfile,"%f %f %f %f %f %f ",tel_az[beam][rowcount],tel_zen[beam][rowcount],ra_sub[beam][rowcount],dec_sub[beam][rowcount],glon_sub[beam][rowcount],glat_sub[beam][rowcount]);
+	}
+	fprintf(outfile,"\n");
+
+	rowcount++;
+      }
+
+      //Print fits file name & position for Patrick's script
+      fprintf(stdout,"%s  %f  %f\n",pfin.filename,ra_sub[ii][0],dec_sub[ii][0]);
+
+      fclose(outfile);
       fits_close_file(infits, &pfin.status);
 
     } else {
@@ -200,11 +256,12 @@ int main(int argc, char** argv)
       //printf("hdrver: %f\n",hdrverf);
       
       //UNCOMMENT FOR RELEASE!!!
-      if(fabs(hdrverf-HDRVERFIX) < 0.001) {
+       if(fabs(hdrverf-HDRVERGOOD) < 0.001) {
 	printf("HDRVER = %5.3f, file does not need fixing.\n",hdrverf);
 	continue;
       }
-      
+ 
+
       //Convert this beam's RA & DEC to strings
       beamrastr = deg2ddmmss(beamrahh[ii],0);
       beamdecstr = deg2ddmmss(beamdecdd[ii],1);
@@ -219,7 +276,7 @@ int main(int argc, char** argv)
       fits_update_key(outfits, TSTRING, "STP_CRD2", beamdecstr, NULL, &pfin.status);
       
       //Update version number
-      sprintf(hdrver,"%5.3f",HDRVERFIX);
+      sprintf(hdrver,"%5.3f",HDRVERGOOD);
       fits_update_key(outfits, TSTRING, "HDRVER", hdrver, NULL, &pfin.status);
       //Add field for fix date
       time(&currtime);                                                     
@@ -227,6 +284,50 @@ int main(int argc, char** argv)
       //printf("FIXDATE: %s \n",tmp);
       fits_update_key(outfits, TSTRING, "FIXDATE",tmp,"Side ALFA beam position fix date (YYYY-MM-DD)",&pfin.status);
       
+      //Move to start of SUBINT table
+      fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
+
+      //Open debugging file
+      sprintf(outfilename,"%s%d%s","beampos",ii,".out.after");
+      outfile = fopen(outfilename,"w");
+
+      //Write corrected positions into rows
+
+      for(rowcount=1; rowcount<=numrows; rowcount++) {
+	
+	fprintf(stderr, "Correcting row %d\r", rowcount);
+	fits_write_col(outfits, TDOUBLE, pfin.subcols.ra_sub, rowcount, 1, 1, &ra_sub[ii][rowcount-1], &pfin.status);
+	fits_write_col(outfits, TDOUBLE, pfin.subcols.dec_sub, rowcount, 1, 1, &dec_sub[ii][rowcount-1], &pfin.status);
+	fits_write_col(outfits, TDOUBLE, pfin.subcols.glon_sub, rowcount, 1, 1, &glon_sub[ii][rowcount-1], &pfin.status);
+	fits_write_col(outfits, TDOUBLE, pfin.subcols.glat_sub, rowcount, 1, 1, &glat_sub[ii][rowcount-1], &pfin.status);
+	fits_write_col(outfits, TFLOAT, pfin.subcols.tel_az, rowcount, 1, 1, &tel_az[ii][rowcount-1], &pfin.status);
+	fits_write_col(outfits, TFLOAT, pfin.subcols.tel_zen, rowcount, 1, 1, &tel_zen[ii][rowcount-1], &pfin.status);
+	
+	//fprintf(stderr, "pfin.status: %d\n",pfin.status);
+
+	//fprintf(outfile, "%f %f %f %f %f %f\n",tel_az[ii][rowcount-1],tel_zen[ii][rowcount-1],ra_sub[ii][rowcount-1],dec_sub[ii][rowcount-1],glon_sub[ii][rowcount-1],glat_sub[ii][rowcount-1]);
+      }
+
+
+      //Move to start of SUBINT table
+      fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
+
+      //Print out positions in all rows for debugging
+      /*
+      rowcount = 0;
+      while (psrfits_read_subint(&pfin) == 0) {
+	fprintf(stderr, "Reading row %d\r", rowcount+1);
+
+	fprintf(outfile,"%f %f %f %f %f %f\n",pfin.sub.tel_az,pfin.sub.tel_zen,pfin.sub.ra,pfin.sub.dec,pfin.sub.glon,pfin.sub.glat);
+
+	rowcount++;
+      }
+      */
+
+      //Print file name, RA(h), DEC(deg) for Patrick's script
+      fprintf(stdout,"%s  %f  %f\n",pfin.filename,ra_sub[ii][0],dec_sub[ii][0]);
+
+      fclose(outfile);		     
       fits_close_file(outfits, &pfin.status);
     }//end if(ii == 0) else
 
@@ -237,6 +338,15 @@ int main(int argc, char** argv)
   free(pfin.sub.dat_offsets);
   free(pfin.sub.dat_scales);
 
+  for(kk=0; kk<NUMFILES; kk++) {
+    free(ra_sub[kk]);
+    free(dec_sub[kk]);
+    free(glon_sub[kk]);
+    free(glat_sub[kk]);
+    free(tel_az[kk]);
+    free(tel_zen[kk]);
+  }
+  
   return 0;
 
 }

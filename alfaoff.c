@@ -38,7 +38,7 @@ int isza;
   char line[80];
 
   if( !alfaoff ) {
-    if( !(fd = fopen("/home/deneva/localdata/fixbeampos-test/alfa_offsets.tcl", "r" )))
+    if( !(fd = fopen("/share/deneva/local/git/fixbeampos/alfa_offsets.tcl", "r" )))
       {
 	printf("FIND_ALFAOFF: no alfa_offsets.tcl file, returning\n");
 	return(0.0);
@@ -142,7 +142,7 @@ double offx, offy, ang;
 
 */
 
-alfa_position( ra, dec, lst, epoch, angle, off1, off2, beam, pra, pdec )
+alfa_position( ra, dec, lst, epoch, angle, off1, off2, beam, pra, pdec, paz, pza )
 double ra;
 double dec;
 double lst;
@@ -153,9 +153,11 @@ double off2;
 int beam;
 double *pra;
 double *pdec;
+double *paz;
+double *pza;
 {
   double rra, rdec, nra, ndec, bra, bdec, offaz, offza;
-  double saz, sza, nsaz, nsza;
+  double saz, sza;
 
   //printf("\nalfa_position: angle: %f  ra: %f  dec: %f  lst: %f\n",angle,ra,dec,lst);
 
@@ -178,6 +180,9 @@ double *pdec;
   sza = sza - (offza - off2);
   compute_radec( saz, sza, lst, &bra, &bdec );
 
+  *paz = saz;
+  *pza = sza;
+
   //printf("after compute_radec bra: %f bdec: %f \n",bra,bdec);
 
   rra = bra*2.0*M_PI/24.0;
@@ -190,7 +195,7 @@ double *pdec;
   *pra = bra;
   *pdec = bdec;
 
-}
+} 
 
 int obs2mjd( dt )
 char *dt;
