@@ -178,10 +178,11 @@ double *pza;
 
   saz = saz - (offaz - off1)/deg_sin(sza);
   sza = sza - (offza - off2);
-  compute_radec( saz, sza, lst, &bra, &bdec );
 
   *paz = saz;
   *pza = sza;
+
+  compute_radec( saz, sza, lst, &bra, &bdec );
 
   //printf("after compute_radec bra: %f bdec: %f \n",bra,bdec);
 

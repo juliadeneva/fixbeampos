@@ -256,11 +256,12 @@ int main(int argc, char** argv)
       //printf("hdrver: %f\n",hdrverf);
       
       //UNCOMMENT FOR RELEASE!!!
+      /*
        if(fabs(hdrverf-HDRVERGOOD) < 0.001) {
 	printf("HDRVER = %5.3f, file does not need fixing.\n",hdrverf);
 	continue;
       }
- 
+      */
 
       //Convert this beam's RA & DEC to strings
       beamrastr = deg2ddmmss(beamrahh[ii],0);
@@ -288,11 +289,11 @@ int main(int argc, char** argv)
       fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
 
       //Open debugging file
-      sprintf(outfilename,"%s%d%s","beampos",ii,".out.after");
+      sprintf(outfilename,"%s%d%s","beampos",ii,".out.before");
       outfile = fopen(outfilename,"w");
 
       //Write corrected positions into rows
-
+      /*
       for(rowcount=1; rowcount<=numrows; rowcount++) {
 	
 	fprintf(stderr, "Correcting row %d\r", rowcount);
@@ -307,13 +308,13 @@ int main(int argc, char** argv)
 
 	//fprintf(outfile, "%f %f %f %f %f %f\n",tel_az[ii][rowcount-1],tel_zen[ii][rowcount-1],ra_sub[ii][rowcount-1],dec_sub[ii][rowcount-1],glon_sub[ii][rowcount-1],glat_sub[ii][rowcount-1]);
       }
-
+      */
 
       //Move to start of SUBINT table
       fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
 
       //Print out positions in all rows for debugging
-      /*
+
       rowcount = 0;
       while (psrfits_read_subint(&pfin) == 0) {
 	fprintf(stderr, "Reading row %d\r", rowcount+1);
@@ -322,7 +323,7 @@ int main(int argc, char** argv)
 
 	rowcount++;
       }
-      */
+
 
       //Print file name, RA(h), DEC(deg) for Patrick's script
       fprintf(stdout,"%s  %f  %f\n",pfin.filename,ra_sub[ii][0],dec_sub[ii][0]);

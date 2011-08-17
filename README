@@ -22,8 +22,7 @@ RA_SUB, DEC_SUB, TEL_AZ, TEL_ZEN, GLON_SUB, GLAT_SUB
 
 The calculated RA, DEC, GL & GB for side beams based on beam 0 values are 
 within a few arcsec of actual positions (from tests on data where both header 
-and rows positions were correct for all beams). The calculated AZ & ZA may be 
-up to 1.5 arcmin from actual positions. This is most likely due to the fact 
-that the pointing model (which is mapped over AZ & ZA) is not taken into 
-account by this code, while it is used during observations to convert encoder 
-positions to the coordinates actually recorded in data files. 
+and rows positions were correct for all beams). The calculated AZ may be 
+up to 1.5 arcmin from actual positions, but that is a "small circle" angular
+distance and may be very large at small ZA. The "great circle" angular offset
+is AZ*sin(ZA), which is just a few arcsec.
