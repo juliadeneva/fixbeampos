@@ -288,12 +288,7 @@ int main(int argc, char** argv)
       //Move to start of SUBINT table
       fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
 
-      //Open debugging file
-      sprintf(outfilename,"%s%d%s","beampos",ii,".out.before");
-      outfile = fopen(outfilename,"w");
-
       //Write corrected positions into rows
-
       for(rowcount=1; rowcount<=numrows; rowcount++) {
 	
 	fprintf(stderr, "Correcting row %d\r", rowcount);
@@ -304,12 +299,13 @@ int main(int argc, char** argv)
 	fits_write_col(outfits, TFLOAT, pfin.subcols.tel_az, rowcount, 1, 1, &tel_az[ii][rowcount-1], &pfin.status);
 	fits_write_col(outfits, TFLOAT, pfin.subcols.tel_zen, rowcount, 1, 1, &tel_zen[ii][rowcount-1], &pfin.status);
 	
-	//fprintf(stderr, "pfin.status: %d\n",pfin.status);
-
-	//fprintf(outfile, "%f %f %f %f %f %f\n",tel_az[ii][rowcount-1],tel_zen[ii][rowcount-1],ra_sub[ii][rowcount-1],dec_sub[ii][rowcount-1],glon_sub[ii][rowcount-1],glat_sub[ii][rowcount-1]);
       }
 
       /*
+      //Open debugging file
+      sprintf(outfilename,"%s%d%s","beampos",ii,".out.after");
+      outfile = fopen(outfilename,"w");
+
       //Move to start of SUBINT table
       fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
 
@@ -322,12 +318,12 @@ int main(int argc, char** argv)
 
 	rowcount++;
       }
+      fclose(outfile);		     
       */
 
       //Print file name, RA(h), DEC(deg) for Patrick's script
       fprintf(stdout,"%s  %f  %f\n",pfin.filename,ra_sub[ii][0],dec_sub[ii][0]);
-
-      fclose(outfile);		     
+      
       fits_close_file(outfits, &pfin.status);
     }//end if(ii == 0) else
 

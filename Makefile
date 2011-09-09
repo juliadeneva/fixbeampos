@@ -25,9 +25,13 @@ CLIG =/home/deneva/local/bin64/clig
 
 OBJS = fixbeampos.o read_psrfits.o write_psrfits.o alfaoff.o cal2mjd.o prec.o azza.o deg_trig.o radec.o glgb.o
 
+OBJS2 = showbeampos.o alfaoff.o cal2mjd.o prec.o azza.o deg_trig.o radec.o #glgb.o
+
 fixbeampos: $(OBJS)
 	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $(OBJS) -lm $(OTHERLINK)
 
+showbeampos: $(OBJS2)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $(OBJS2) -lm #$(OTHERLINK)
 clean:
 	rm -f *.o *~ *#
 
