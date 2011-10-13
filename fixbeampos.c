@@ -11,7 +11,6 @@
 #define HDRVERFIX 3.429 //only main header fixed, not rows
 #define NUMFILES 7
 
-int obs2mjd(char* dt);
 float ddmmss2deg(char* ddmmss, int issign);
 char* deg2ddmmss(float deg, int issign);
 void alfa_position(double ra, double dec, double lst, double epoch, double angle, double off1, double off2, int beam, double *pra, double *pdec, double *paz, double *pza );
@@ -20,12 +19,12 @@ void glgb(double radeg, double decdeg, double* gl, double* gb);
 int main(int argc, char** argv)
 {
   FILE* outfile;
-  int status, ii, beam, beamnum, numrows, kk, rowcount;
+  int status, ii, beam, beamnum, numrows=0, kk, rowcount;
   struct psrfits pfin;
   char *pc1, *pc2, *ibeam, *beamrastr, *beamdecstr;
   fitsfile *infits, *outfits;
   char tmp[24], hdrver[24];
-  double current_epoch, mjd;
+  double current_epoch;
   double rahh, decdd, hdrverf;
   double beamrahh[NUMFILES], beamdecdd[NUMFILES], beamaz, beamza;
   time_t currtime;
@@ -106,9 +105,8 @@ int main(int argc, char** argv)
 	    exit(1);
       }
 
-      // Find the time in years after epoch 2000.0
-      mjd = pfin.hdr.MJD_epoch - 51544.0;
-      current_epoch = 2000.0 + mjd / 365.25; // in 2004.6545 format
+      // Find the epoch in years after epoch 2000.0
+      current_epoch = 2000.0 + (pfin.hdr.MJD_epoch - 51544.0) / 365.25;
       
       //Find RA & DEC as decimal hours and degrees, respectively
       //RA is a string of the form HH:MM:SS.SSSS
