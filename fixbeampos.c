@@ -24,11 +24,9 @@ int main(int argc, char** argv)
   struct psrfits pfin;
   char *pc1, *pc2, *ibeam, *beamrastr, *beamdecstr;
   fitsfile *infits, *outfits;
-  char rastr[24], decstr[24], obs_date[24], datecat[24], tmp[24], hdrver[24];
-  char frontend[24], backend[24], outfilename[24];
-  int stt_imjd, stt_smjd;
-  float stt_offs, stt_lst, start_mjd, start_lst, current_time, mjd, secs;
-  float rahh, decdd, hdrverf;
+  char tmp[24], hdrver[24];
+  double current_epoch, mjd;
+  double rahh, decdd, hdrverf;
   double beamrahh[NUMFILES], beamdecdd[NUMFILES], beamaz, beamza;
   time_t currtime;
   float* tel_az[NUMFILES], *tel_zen[NUMFILES];
@@ -52,10 +50,10 @@ int main(int argc, char** argv)
       *pc2 = 0;               // terminate string
       pc1 = pc2 - 1;
       while ((pc1 >= argv[ii+1]) && isdigit(*pc1))
-	pc1--;
+        pc1--;
       if (pc1 <= argv[ii+1]) {     // need at least 1 char before filenum
-	puts("Illegal input filename. must have chars before the filenumber");
-	exit(1);
+        puts("Illegal input filename. must have chars before the filenumber");
+        exit(1);
       }
       pc1++;                  // we were sitting on "." move to first digit
       pfin.filenum = atoi(pc1);
@@ -75,15 +73,15 @@ int main(int argc, char** argv)
       //Reading the beam 0 file
       
       if (beamnum != 0) {
-	printf("File is not from ALFA beam 0!\n");
-	exit(1);
+	    printf("File is not from ALFA beam 0!\n");
+	    exit(1);
       }
       
       //Open the existing psrfits file
       if (psrfits_open(&pfin, READONLY) != 0) {
-	fprintf(stderr, "error opening file\n");
-	fits_report_error(stderr, pfin.status);
-	exit(1);
+	    fprintf(stderr, "error opening file\n");
+	    fits_report_error(stderr, pfin.status);
+	    exit(1);
       }
       infits = pfin.fptr;
 
@@ -91,57 +89,26 @@ int main(int argc, char** argv)
       pfin.sub.dat_freqs = (float *) malloc(sizeof(float) * pfin.hdr.nchan);
       pfin.sub.dat_weights = (float *) malloc(sizeof(float) * pfin.hdr.nchan);
       pfin.sub.dat_offsets =
-	(float *) malloc(sizeof(float) * pfin.hdr.nchan * pfin.hdr.npol);
+        (float *) malloc(sizeof(float) * pfin.hdr.nchan * pfin.hdr.npol);
       pfin.sub.dat_scales =
-	(float *) malloc(sizeof(float) * pfin.hdr.nchan * pfin.hdr.npol);
+        (float *) malloc(sizeof(float) * pfin.hdr.nchan * pfin.hdr.npol);
 
       //Move to main HDU
       fits_movabs_hdu(infits, 1, NULL, &status);
+
       //Check that receiver is ALFA and backend is Mock
-      fits_read_key(infits, TSTRING, "FRONTEND", frontend, NULL, &pfin.status);
-      if(strcmp(frontend, "alfa") != 0) {
-	fprintf(stderr,"File not from frontend ALFA!\n");
-	exit(1);
+      if(strcmp(pfin.hdr.frontend, "alfa") != 0) {
+	    fprintf(stderr,"File not from frontend ALFA!\n");
+	    exit(1);
       }
-      fits_read_key(infits, TSTRING, "BACKEND", backend, NULL, &pfin.status);
-      if(strcmp(backend, "pdev") != 0) {
-	fprintf(stderr,"File not from backend Mock!\n");
-	exit(1);
+      if(strcmp(pfin.hdr.backend, "pdev") != 0) {
+	    fprintf(stderr,"File not from backend Mock!\n");
+	    exit(1);
       }
 
-      //Read various fields needed for calculation of the side beam positions
-      fits_read_key(infits, TSTRING, "DATE-OBS", obs_date, NULL, &pfin.status);
-      //printf("obs_date: %s\n", obs_date);
-      fits_read_key(infits, TSTRING, "RA", rastr, NULL, &pfin.status);
-      //printf("rastr: %s\n",rastr);
-      fits_read_key(infits, TSTRING, "DEC", decstr, NULL, &pfin.status);
-      //printf("decstr: %s\n",decstr);
-      fits_read_key(infits, TINT, "STT_IMJD", &stt_imjd, NULL, &pfin.status);
-      fits_read_key(infits, TINT, "STT_SMJD", &stt_smjd, NULL, &pfin.status);
-      fits_read_key(infits, TFLOAT, "STT_OFFS", &stt_offs, NULL, &pfin.status);
-      //printf("status: %d\n", pfin.status);
-      fits_read_key(infits, TFLOAT, "STT_LST", &stt_lst, NULL, &pfin.status);
-      //printf("stt_imjd: %d  stt_smjd: %d  stt_offs: %f  stt_lst: %f\n",stt_imjd, stt_smjd, stt_offs, stt_lst);
-      
-      //Find the MJD, LST, and UT days past 2000-01-01 (epoch 2000.0) at start
-      secs = (float)stt_smjd + stt_offs; 
-      start_mjd = (float)stt_imjd + secs/(24.0*3600.0);
-      start_lst = stt_lst/3600.0; 
-      
-      //Start copy from alfasplit.c
-      strcpy(tmp, obs_date);
-      tmp[4] = '\0';
-      tmp[7] = '\0';
-      tmp[10] = '\0';
-      strcpy(datecat,"\0");
-      strcat(datecat,tmp);
-      strcat(datecat,&tmp[5]);
-      strcat(datecat,&tmp[8]);
-      //printf("datecat: %s\n", datecat);
-      mjd = obs2mjd(datecat);
-      mjd = mjd - obs2mjd("20000101");
-      current_time = 2000.0 + (mjd + secs/(3600.0*24.0))/365.25; //ut
-      //End copy from alfasplit.c
+      // Find the time in years after epoch 2000.0
+      mjd = pfin.hdr.MJD_epoch - 51544.0;
+      current_epoch = 2000.0 + mjd / 365.25; // in 2004.6545 format
       
       //Find RA & DEC as decimal hours and degrees, respectively
       //RA is a string of the form HH:MM:SS.SSSS
@@ -154,26 +121,26 @@ int main(int argc, char** argv)
       //Move to SUBINT table
       fits_movnam_hdu(infits, BINARY_TBL, "SUBINT", 0, &pfin.status);
       //Get the number of rows
-      fits_read_key(infits, TINT, "NAXIS2", &numrows, NULL, &pfin.status);
-      //fprintf(stderr,"numrows: %d\n",numrows);
+      numrows = pfin.rows_per_file;
+      fprintf(stderr,"numrows: %d\n",numrows);
       //Allocate coordinate arrays for all beams
       for(kk=0; kk<NUMFILES; kk++) {
-	ra_sub[kk] = (double*) malloc(sizeof(double) * numrows);
-	dec_sub[kk] = (double*) malloc(sizeof(double) * numrows);
-	glon_sub[kk] = (double*) malloc(sizeof(double) * numrows);
-	glat_sub[kk] = (double*) malloc(sizeof(double) * numrows);
-	tel_az[kk] = (float*) malloc(sizeof(float) * numrows);
-	tel_zen[kk] = (float*) malloc(sizeof(float) * numrows);
+        ra_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+        dec_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+        glon_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+        glat_sub[kk] = (double*) malloc(sizeof(double) * numrows);
+        tel_az[kk] = (float*) malloc(sizeof(float) * numrows);
+        tel_zen[kk] = (float*) malloc(sizeof(float) * numrows);
       }
 	
       
       outfile = fopen("beampos.out","w");
       rowcount = 0;
       while (psrfits_read_subint(&pfin) == 0) {
-	fprintf(stderr, "Working on row %d\r", rowcount+1);
+        fprintf(stderr, "Working on row %d\r", rowcount+1);
 
-	if(rowcount == 0)
-	  fprintf(outfile,"# b0az b0za b0ra b0dec b1az b1za b1ra b1dec, etc\n");
+      if(rowcount == 0)
+        fprintf(outfile,"# b0az b0za b0ra b0dec b1az b1za b1ra b1dec, etc\n");
 
 	//printf("row: %d  feed_ang: %f  tel_az: %f tel_zen: %f ra_sub: %f dec_sub: %f\n", rowcount, pfin.sub.feed_ang, pfin.sub.tel_az, pfin.sub.tel_zen, pfin.sub.ra, pfin.sub.dec);
 	//NOTE: ra_sub is in degrees, while alfa_position wants the ra in hours
@@ -191,8 +158,10 @@ int main(int argc, char** argv)
 	rahh = pfin.sub.ra/360.0 * 24.0;
 
 	for(beam=1; beam<NUMFILES; beam++) {
-	  //alfa_position((double)rahh, (double)decdd, (double)start_lst, (double)current_time, (double)pfin.sub.feed_ang, 0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], &beamaz, &beamza);
-	  alfa_position((double)rahh, (double)decdd, (double)pfin.sub.lst/3600.0, (double)current_time, (double)pfin.sub.feed_ang, 0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], &beamaz, &beamza);
+        alfa_position(rahh, decdd, pfin.sub.lst/3600.0, 
+                      current_epoch, pfin.sub.feed_ang, 
+                      0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], 
+                      &beamaz, &beamza);
 	  
 	  //Save this row's RA, DEC, AZ & ZA, GL & GB
 	  tel_az[beam][rowcount] = (float)beamaz;
@@ -200,7 +169,8 @@ int main(int argc, char** argv)
 	  ra_sub[beam][rowcount] = beamrahh[beam]/24.0 * 360.0;
 	  dec_sub[beam][rowcount] = beamdecdd[beam];
 
-	  glgb(ra_sub[beam][rowcount], dec_sub[beam][rowcount], &glon_sub[beam][rowcount],&glat_sub[beam][rowcount]);
+	  glgb(ra_sub[beam][rowcount], dec_sub[beam][rowcount], 
+           &glon_sub[beam][rowcount],&glat_sub[beam][rowcount]);
 
 	  //Convert beam RA & DEC from 1st row to strings to put in side 
 	  //beam main HDU
@@ -212,10 +182,10 @@ int main(int argc, char** argv)
 	      
 	//Print positions for all beams to debugging file
 	for(beam=0; beam<NUMFILES; beam++) {
-	  fprintf(outfile,"%f %f %f %f %f %f ",tel_az[beam][rowcount],tel_zen[beam][rowcount],ra_sub[beam][rowcount],dec_sub[beam][rowcount],glon_sub[beam][rowcount],glat_sub[beam][rowcount]);
+        fprintf(outfile,"%f %f %f %f %f %f ",tel_az[beam][rowcount],tel_zen[beam][rowcount],ra_sub[beam][rowcount],dec_sub[beam][rowcount],glon_sub[beam][rowcount],glat_sub[beam][rowcount]);
 	}
 	fprintf(outfile,"\n");
-
+    
 	rowcount++;
       }
 
@@ -241,9 +211,9 @@ int main(int argc, char** argv)
 
       //Open side beam file for writing
       if (psrfits_open(&pfin, READWRITE) != 0) {
-	fprintf(stderr, "Error opening file\n");
-	//fits_report_error(stderr, pfin.status); //this exits
-	continue;
+	    fprintf(stderr, "Error opening file\n");
+        //fits_report_error(stderr, pfin.status); //this exits
+        continue;
       }
       outfits = pfin.fptr;
       
@@ -257,9 +227,9 @@ int main(int argc, char** argv)
       
       //UNCOMMENT FOR RELEASE!!!
 
-       if(fabs(hdrverf-HDRVERGOOD) < 0.001) {
-	printf("HDRVER = %5.3f, file does not need fixing.\n",hdrverf);
-	continue;
+      if (fabs(hdrverf-HDRVERGOOD) < 0.001) {
+        printf("HDRVER = %5.3f, file does not need fixing.\n",hdrverf);
+        continue;
       }
 
 
@@ -290,15 +260,13 @@ int main(int argc, char** argv)
 
       //Write corrected positions into rows
       for(rowcount=1; rowcount<=numrows; rowcount++) {
-	
-	fprintf(stderr, "Correcting row %d\r", rowcount);
-	fits_write_col(outfits, TDOUBLE, pfin.subcols.ra_sub, rowcount, 1, 1, &ra_sub[ii][rowcount-1], &pfin.status);
-	fits_write_col(outfits, TDOUBLE, pfin.subcols.dec_sub, rowcount, 1, 1, &dec_sub[ii][rowcount-1], &pfin.status);
-	fits_write_col(outfits, TDOUBLE, pfin.subcols.glon_sub, rowcount, 1, 1, &glon_sub[ii][rowcount-1], &pfin.status);
-	fits_write_col(outfits, TDOUBLE, pfin.subcols.glat_sub, rowcount, 1, 1, &glat_sub[ii][rowcount-1], &pfin.status);
-	fits_write_col(outfits, TFLOAT, pfin.subcols.tel_az, rowcount, 1, 1, &tel_az[ii][rowcount-1], &pfin.status);
-	fits_write_col(outfits, TFLOAT, pfin.subcols.tel_zen, rowcount, 1, 1, &tel_zen[ii][rowcount-1], &pfin.status);
-	
+        fprintf(stderr, "Correcting row %d\r", rowcount);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.ra_sub, rowcount, 1, 1, &ra_sub[ii][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.dec_sub, rowcount, 1, 1, &dec_sub[ii][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.glon_sub, rowcount, 1, 1, &glon_sub[ii][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.glat_sub, rowcount, 1, 1, &glat_sub[ii][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TFLOAT, pfin.subcols.tel_az, rowcount, 1, 1, &tel_az[ii][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TFLOAT, pfin.subcols.tel_zen, rowcount, 1, 1, &tel_zen[ii][rowcount-1], &pfin.status);
       }
 
       /*
