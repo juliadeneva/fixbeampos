@@ -7,6 +7,9 @@
 
 #define NUMFILES 7
 
+void alfa_position(double ra, double dec, double lst, double epoch, double angle, double off1, double off2, int beam, double *pra, double *pdec, double *paz, double *pza );
+
+
 int main(int argc, char** argv)
 {
   FILE* infile;

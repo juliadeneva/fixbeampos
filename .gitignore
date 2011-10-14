@@ -1,0 +1,6 @@
+fixbeampos
+showbeampos
+*#
+*.o
+*~
+*.pyc

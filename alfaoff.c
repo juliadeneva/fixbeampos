@@ -34,11 +34,13 @@ int isza;
   int count;
   char *s;
   char *delim = " \t\n";
+  char path[200];
   FILE *fd;
   char line[80];
 
+  sprintf(path, "%s/alfa_offsets.tcl", SRCDIR);
   if( !alfaoff ) {
-    if( !(fd = fopen("/share/deneva/local/git/fixbeampos/alfa_offsets.tcl", "r" )))
+    if( !(fd = fopen(path, "r" )))
       {
 	printf("FIND_ALFAOFF: no alfa_offsets.tcl file, returning\n");
 	return(0.0);
