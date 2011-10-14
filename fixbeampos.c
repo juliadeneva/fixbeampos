@@ -23,7 +23,7 @@ int main(int argc, char** argv)
   struct psrfits pfin;
   char *pc1, *pc2, *ibeam, *beamrastr, *beamdecstr;
   fitsfile *infits, *outfits;
-  char tmp[24], hdrver[24];
+  char tmp[24], hdrver[24], histstr[200];
   double current_epoch;
   double rahh, decdd, hdrverf;
   double beamrahh[NUMFILES], beamdecdd[NUMFILES], beamaz, beamza;
@@ -249,10 +249,15 @@ int main(int argc, char** argv)
       fits_update_key(outfits, TSTRING, "HDRVER", hdrver, NULL, &pfin.status);
       //Add field for fix date
       time(&currtime);                                                     
-      strftime(tmp,sizeof(tmp)-1,"%Y-%m-%d",localtime(&currtime)); 
+      strftime(tmp, sizeof(tmp)-1, "%Y-%m-%d",localtime(&currtime));
       //printf("FIXDATE: %s \n",tmp);
-      fits_update_key(outfits, TSTRING, "FIXDATE",tmp,"Side ALFA beam position fix date (YYYY-MM-DD)",&pfin.status);
-      
+      // Add a HISTORY line with the date fixed and the old coords
+      sprintf(histstr, "Positional information changed by fixbeampos on %s.", tmp);
+      fits_write_history(outfits, histstr, &pfin.status);
+      sprintf(histstr, "Original RA and DEC were '%s', '%s'",
+              pfin.hdr.ra_str, pfin.hdr.dec_str);
+      fits_write_history(outfits, histstr, &pfin.status);
+
       //Move to start of SUBINT table
       fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
 
