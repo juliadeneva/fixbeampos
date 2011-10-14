@@ -39,7 +39,6 @@ int isza;
   char line[80];
 
   sprintf(path, "%s/alfa_offsets.tcl", SRCDIR);
-  printf("'%s'\n", path);
   if( !alfaoff ) {
     if( !(fd = fopen(path, "r" )))
       {
