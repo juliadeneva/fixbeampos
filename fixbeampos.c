@@ -36,7 +36,6 @@ int main(int argc, char** argv)
     exit(1);
   }
 
-  fprintf(stderr, "Code has git hash %s\n", GITHASH);
 
   // Open the input files
   status = 0;  //fits_close segfaults if this is not initialized
