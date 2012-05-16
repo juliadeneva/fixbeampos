@@ -7,7 +7,7 @@ OTHERLINK = -L/usr/lib64 -lcfitsio #-L/home.local/phil/svn/pdev/libs
 SRCDIR = $(shell pwd)
 
 # git commit-hash
-GITHASH = $(shell git rev-parse HEAD)
+GITHASH = $(shell /usr/bin/git rev-parse HEAD)
 
 #BINDIR = /home/deneva/bin64
 BINDIR = $(shell pwd)

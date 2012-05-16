@@ -227,12 +227,10 @@ int main(int argc, char** argv)
       
 
       //UNCOMMENT FOR RELEASE!!!
-      /*
       if (fabs(hdrverf-HDRVERGOOD) < 0.001) {
         printf("HDRVER = %5.3f, file does not need fixing.\n",hdrverf);
         continue;
       }
-      */
 
       //Replace RA & DEC with correct values
       fits_update_key(outfits, TSTRING, "RA", beamrastr, NULL, &pfin.status);
