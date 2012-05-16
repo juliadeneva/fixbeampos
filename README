@@ -1,7 +1,3 @@
-*** Before compiling: change the path to alfa_offsets.tcl in alfaoff.c to point
-to where the file is on your machine.
-
-
 Fixbeampos fixes coordinates in the main header of Mock psrfits files taken
 with ALFA up to 28 Jan. 2010. Up to that date, coordinates in the headers 
 and rows of side beam (beams 1-6) data files were not calculated correctly by
@@ -9,12 +5,15 @@ the Mock data-writing software. Data files from beam 0 are fine.
 
 Data with HDRVER of 3.43 or greater in the main header are not affected. 
 
-The program needs a beam 0 file--it will use the positions in its header and
-rows to calculate the correct positions of the side beams' headers and rows,
-and will correct the side beam files if they are present in the current
-directory. HDRVER in the main header of side beam files will be changed
-to 3.43. A new field FIXDATE will be added to the main header of side beam
-files to record the date on which they were corrected. 
+--The first argument to the program must be a beam 0 file.
+--The program takes up to 7 arguments (ie a pointing's worth of files)
+--Files may be in different locations (specify full path or path relative to current directory)
+--Program does NOT check if specified files belong to the same pointing.
+--Program does NOT check if there is more than one specified file per beam (eg a stray file from a different pointing)
+--If a beam 0 file is given later in the list, it will be ignored; it will not be changed. 
+
+HDRVER in the main header is changed to 3.43.
+HISTORY lines are added to the main header containing the old coordinates from the main header and the git hash of the code that corrected the coordinates.
 
 Fields fixed in main header:
 HDRVER, RA, DEC, STT_CRD1, STT_CRD2, STP_CRD1, STP_CRD2 (the latter two pairs 

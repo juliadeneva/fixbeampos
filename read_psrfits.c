@@ -25,6 +25,7 @@ int psrfits_open(struct psrfits *pf, int iomode)
     sprintf(pf->filename, "%s%0*d.fits", pf->basefilename, pf->fnamedigits,
             pf->filenum);
     //fprintf(stderr,"%s\n",pf->filename);
+    //fprintf(stderr,"%s\n",pf->basefilename);
     fits_open_file(&(pf->fptr), pf->filename, iomode, status);
 
     // If file does not exist, exit now

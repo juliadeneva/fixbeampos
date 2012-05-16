@@ -31,49 +31,58 @@ int main(int argc, char** argv)
   float* tel_az[NUMFILES], *tel_zen[NUMFILES];
   double *ra_sub[NUMFILES], *dec_sub[NUMFILES], *glon_sub[NUMFILES], *glat_sub[NUMFILES];
 
-  if (argc != 2) {
-    printf("Usage: fixbeampos [beam0 psrfits file]\n");
-    printf("(All psrfits files should be in the current directory.)\n");
+  if (argc < 2 || argc > 8) {
+    printf("Usage: fixbeampos [beam0 psrfits file] [beam 1 - beam 6 files]\n");
     exit(1);
   }
+
+  fprintf(stderr, "Code has git hash %s\n", GITHASH);
 
   // Open the input files
   status = 0;  //fits_close segfaults if this is not initialized
   fprintf(stderr, "Reading input data from:\n");
-  for (ii = 0; ii < NUMFILES; ii++) {
+  for (ii = 0; ii < argc-1; ii++) {
+    
+    fprintf(stderr,"  '%s'\n", argv[ii+1]);
+    //Get the file basename and number from command-line argument
+    //(code taken from psrfits2fil)
+    pc2 = strrchr(argv[ii+1], '.');      // at .fits
+    *pc2 = 0;               // terminate string
+    pc1 = pc2 - 1;
+    while ((pc1 >= argv[ii+1]) && isdigit(*pc1))
+      pc1--;
+    if (pc1 <= argv[ii+1]) {     // need at least 1 char before filenum
+      puts("Illegal input filename. must have chars before the filenumber");
+      exit(1);
+    }
+    pc1++;                  // we were sitting on "." move to first digit
+    pfin.filenum = atoi(pc1);
+    pfin.fnamedigits = pc2 - pc1;   // how many digits in filenumbering scheme.
+    *pc1 = 0;               // null terminate the basefilename
+    strcpy(pfin.basefilename, argv[ii+1]);
+    pfin.initialized = 0;   // set to 1 in  psrfits_open()
+    pfin.status = 0;
+    
+    //Get the beam number from the file name
+    ibeam = strrchr(argv[ii+1], 'b');
+    ibeam = ibeam+1;
+    *(ibeam+1) = 0;  //terminate string
+    beamnum = atoi(ibeam);
+    //fprintf(stderr,"ibeam: %s\n", ibeam);
+    
+    if (beamnum == 0 && ii != 0) {
+      fprintf(stderr, "Stray beam 0 file in list, will skip!\n");
+      fprintf(stderr, "First beam 0 file encountered: %s\n", argv[1]);
+      fprintf(stderr, "This file: %s\n", argv[ii+1]);
+      continue;
+    }
+
     if (ii == 0) {
-      fprintf(stderr,"  '%s'\n", argv[ii+1]);
-      //Get the file basename and number from command-line argument
-      //(code taken from psrfits2fil)
-      pc2 = strrchr(argv[ii+1], '.');      // at .fits
-      *pc2 = 0;               // terminate string
-      pc1 = pc2 - 1;
-      while ((pc1 >= argv[ii+1]) && isdigit(*pc1))
-        pc1--;
-      if (pc1 <= argv[ii+1]) {     // need at least 1 char before filenum
-        puts("Illegal input filename. must have chars before the filenumber");
-        exit(1);
-      }
-      pc1++;                  // we were sitting on "." move to first digit
-      pfin.filenum = atoi(pc1);
-      pfin.fnamedigits = pc2 - pc1;   // how many digits in filenumbering scheme.
-      *pc1 = 0;               // null terminate the basefilename
-      strcpy(pfin.basefilename, argv[ii+1]);
-      pfin.initialized = 0;   // set to 1 in  psrfits_open()
-      pfin.status = 0;
-      
-      //Get the beam number from the file name
-      ibeam = strrchr(argv[ii+1], 'b');
-      ibeam = ibeam+1;
-      *(ibeam+1) = 0;  //terminate string
-      beamnum = atoi(ibeam);
-      //fprintf(stderr,"ibeam: %s\n", ibeam);
-      
       //Reading the beam 0 file
       
       if (beamnum != 0) {
-	    printf("File is not from ALFA beam 0!\n");
-	    exit(1);
+	fprintf(stderr, "File is not from ALFA beam 0!\n");
+	exit(1);
       }
       
       //Open the existing psrfits file
@@ -188,24 +197,13 @@ int main(int argc, char** argv)
       }
 
       //Print fits file name & position for Patrick's script
-      fprintf(stdout,"%s  %f  %f\n",pfin.filename,ra_sub[ii][0],dec_sub[ii][0]);
+      fprintf(stdout,"%s  %s  Old  %s  %s  %f  %f\n",pfin.filename,ibeam,pfin.hdr.ra_str, pfin.hdr.dec_str, ra_sub[beamnum][0],dec_sub[beamnum][0]);
+      fprintf(stdout,"%s  %s  New  %s  %s  %f  %f\n",pfin.filename,ibeam,pfin.hdr.ra_str, pfin.hdr.dec_str, ra_sub[beamnum][0],dec_sub[beamnum][0]);
 
       fclose(outfile);
       fits_close_file(infits, &pfin.status);
 
     } else {
-
-      //Construct file name for side beam
-      ibeam = strrchr(pfin.basefilename, 'b');
-      pc2 = ibeam+2; //portion of basefilename after beam number
-      ibeam = ibeam+1;
-      *(ibeam) = 0;  //terminate string
-      beamnum = ii;
-      sprintf(pfin.basefilename,"%s%d%s",pfin.basefilename,ii,pc2);
-      //printf("beam: %d pfin.basefilename: %s\n",ii,pfin.basefilename);
-
-      pfin.initialized = 0;   // set to 1 in  psrfits_open()
-      pfin.status = 0;
 
       //Open side beam file for writing
       if (psrfits_open(&pfin, READWRITE) != 0) {
@@ -223,19 +221,20 @@ int main(int argc, char** argv)
       hdrverf = atof(hdrver);
       //printf("hdrver: %f\n",hdrverf);
       
-      //UNCOMMENT FOR RELEASE!!!
+      //Convert this beam's RA & DEC to strings
+      beamrastr = deg2ddmmss(beamrahh[beamnum],0);
+      beamdecstr = deg2ddmmss(beamdecdd[beamnum],1);
+      //printf("beam: %d  ra: %s  dec: %s\n", ii,beamrastr,beamdecstr);
+      
 
+      //UNCOMMENT FOR RELEASE!!!
+      /*
       if (fabs(hdrverf-HDRVERGOOD) < 0.001) {
         printf("HDRVER = %5.3f, file does not need fixing.\n",hdrverf);
         continue;
       }
+      */
 
-
-      //Convert this beam's RA & DEC to strings
-      beamrastr = deg2ddmmss(beamrahh[ii],0);
-      beamdecstr = deg2ddmmss(beamdecdd[ii],1);
-      //printf("beam: %d  ra: %s  dec: %s\n", ii,beamrastr,beamdecstr);
-      
       //Replace RA & DEC with correct values
       fits_update_key(outfits, TSTRING, "RA", beamrastr, NULL, &pfin.status);
       fits_update_key(outfits, TSTRING, "DEC", beamdecstr, NULL, &pfin.status);
@@ -257,6 +256,8 @@ int main(int argc, char** argv)
       sprintf(histstr, "Original RA and DEC were '%s', '%s'",
               pfin.hdr.ra_str, pfin.hdr.dec_str);
       fits_write_history(outfits, histstr, &pfin.status);
+      sprintf(histstr, "Git hash of fixbeampos: %s", GITHASH);
+      fits_write_history(outfits, histstr, &pfin.status);
 
       //Move to start of SUBINT table
       fits_movnam_hdu(outfits, BINARY_TBL, "SUBINT", 0, &pfin.status);
@@ -264,12 +265,12 @@ int main(int argc, char** argv)
       //Write corrected positions into rows
       for(rowcount=1; rowcount<=numrows; rowcount++) {
         fprintf(stderr, "Correcting row %d\r", rowcount);
-        fits_write_col(outfits, TDOUBLE, pfin.subcols.ra_sub, rowcount, 1, 1, &ra_sub[ii][rowcount-1], &pfin.status);
-        fits_write_col(outfits, TDOUBLE, pfin.subcols.dec_sub, rowcount, 1, 1, &dec_sub[ii][rowcount-1], &pfin.status);
-        fits_write_col(outfits, TDOUBLE, pfin.subcols.glon_sub, rowcount, 1, 1, &glon_sub[ii][rowcount-1], &pfin.status);
-        fits_write_col(outfits, TDOUBLE, pfin.subcols.glat_sub, rowcount, 1, 1, &glat_sub[ii][rowcount-1], &pfin.status);
-        fits_write_col(outfits, TFLOAT, pfin.subcols.tel_az, rowcount, 1, 1, &tel_az[ii][rowcount-1], &pfin.status);
-        fits_write_col(outfits, TFLOAT, pfin.subcols.tel_zen, rowcount, 1, 1, &tel_zen[ii][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.ra_sub, rowcount, 1, 1, &ra_sub[beamnum][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.dec_sub, rowcount, 1, 1, &dec_sub[beamnum][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.glon_sub, rowcount, 1, 1, &glon_sub[beamnum][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TDOUBLE, pfin.subcols.glat_sub, rowcount, 1, 1, &glat_sub[beamnum][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TFLOAT, pfin.subcols.tel_az, rowcount, 1, 1, &tel_az[beamnum][rowcount-1], &pfin.status);
+        fits_write_col(outfits, TFLOAT, pfin.subcols.tel_zen, rowcount, 1, 1, &tel_zen[beamnum][rowcount-1], &pfin.status);
       }
 
       /*
@@ -292,8 +293,10 @@ int main(int argc, char** argv)
       fclose(outfile);		     
       */
 
-      //Print file name, RA(h), DEC(deg) for Patrick's script
-      fprintf(stdout,"%s  %f  %f\n",pfin.filename,ra_sub[ii][0],dec_sub[ii][0]);
+      //Print fits file name & position for Patrick's script
+      fprintf(stdout,"%s  %s  Old  %s  %s  %f  %f\n",pfin.filename, ibeam, pfin.hdr.ra_str, pfin.hdr.dec_str, 15.0*ddmmss2deg(pfin.hdr.ra_str,0), ddmmss2deg(pfin.hdr.dec_str,1));
+      fprintf(stdout,"%s  %s  New  %s  %s  %f  %f\n",pfin.filename, ibeam, beamrastr, beamdecstr, 15.0*beamrahh[beamnum], beamdecdd[beamnum]);
+
       
       fits_close_file(outfits, &pfin.status);
     }//end if(ii == 0) else
@@ -326,15 +329,18 @@ float ddmmss2deg(char* ddmmss, int issign)
 {
   int dd, mm;
   float ss, deg;
+  char ddmmsstemp[16];
+  
+  strcpy(ddmmsstemp, ddmmss);
 
-  ddmmss[2+issign] = '\0';
-  dd = atoi(ddmmss);
-  ddmmss[5+issign] = '\0';
-  mm = atoi(&ddmmss[3+issign]);
-  ss = atof(&ddmmss[6+issign]);
+  ddmmsstemp[2+issign] = '\0';
+  dd = atoi(ddmmsstemp);
+  ddmmsstemp[5+issign] = '\0';
+  mm = atoi(&ddmmsstemp[3+issign]);
+  ss = atof(&ddmmsstemp[6+issign]);
   deg = (float)dd + (float)mm/60.0 + ss/3600.0;
 
-  if(issign && ddmmss[0] == '-')
+  if(issign && ddmmsstemp[0] == '-')
     deg = -deg;
   
   return deg;

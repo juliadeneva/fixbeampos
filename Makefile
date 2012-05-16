@@ -1,10 +1,13 @@
 # Other include directory (for CFITSIO, libsla, which is in PRESTO)
-OTHERINCLUDE = -I/usr/include/cfitsio  #-I/home.local/phil/svn/pdev/include
+OTHERINCLUDE = -I/usr/include/libcfitsio0  #-I/home.local/phil/svn/pdev/include
 # Other link directory (for CFITSIO)
 OTHERLINK = -L/usr/lib64 -lcfitsio #-L/home.local/phil/svn/pdev/libs
 
 # Source directory
 SRCDIR = $(shell pwd)
+
+# git commit-hash
+GITHASH = $(shell git rev-parse HEAD)
 
 #BINDIR = /home/deneva/bin64
 BINDIR = $(shell pwd)
@@ -12,6 +15,7 @@ BINDIR = $(shell pwd)
 # Which C compiler
 CC = gcc
 CFLAGS = $(OTHERINCLUDE) -DSRCDIR=\"$(SRCDIR)\"\
+	-DGITHASH=\"$(GITHASH)\"\
         -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64\
         -g -Wall -W -O1 \
 
