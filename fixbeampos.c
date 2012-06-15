@@ -31,7 +31,7 @@ int main(int argc, char** argv)
   float* tel_az[NUMFILES], *tel_zen[NUMFILES];
   double *ra_sub[NUMFILES], *dec_sub[NUMFILES], *glon_sub[NUMFILES], *glat_sub[NUMFILES];
 
-  if (argc < 2) {
+  if (argc < 2 || argc > 8) {
     printf("Usage: fixbeampos [beam0 psrfits file] [beam 1 - beam 6 files]\n");
     exit(1);
   }
