@@ -1,5 +1,5 @@
 /*
-Convert from RA & DEV to Gl & Gb
+Convert from RA & DEC to Gl & Gb
 
 */
 #include <stdio.h>

@@ -11,6 +11,9 @@
 #define HDRVERFIX 3.429 //only main header fixed, not rows
 #define NUMFILES 7
 
+//arcsec of drift between 1st & last row of beam0 that will trigger a warning
+#define DRIFTTOL 120 
+
 float ddmmss2deg(char* ddmmss, int issign);
 char* deg2ddmmss(float deg, int issign);
 void alfa_position(double ra, double dec, double lst, double epoch, double angle, double off1, double off2, int beam, double *pra, double *pdec, double *paz, double *pza );
@@ -24,12 +27,13 @@ int main(int argc, char** argv)
   char *pc1, *pc2, *ibeam, *beamrastr, *beamdecstr;
   fitsfile *infits, *outfits;
   char tmp[24], hdrver[24], histstr[200];
-  double current_epoch;
+  double current_epoch, posdiff;
   double rahh, decdd, hdrverf;
   double beamrahh[NUMFILES], beamdecdd[NUMFILES], beamaz, beamza;
   time_t currtime;
   float* tel_az[NUMFILES], *tel_zen[NUMFILES];
   double *ra_sub[NUMFILES], *dec_sub[NUMFILES], *glon_sub[NUMFILES], *glat_sub[NUMFILES];
+  
 
   if (argc < 2 || argc > 8) {
     printf("Usage: fixbeampos [beam0 psrfits file] [beam 1 - beam 6 files]\n");
@@ -145,8 +149,8 @@ int main(int argc, char** argv)
       while (psrfits_read_subint(&pfin) == 0) {
         fprintf(stderr, "Working on row %d\r", rowcount+1);
 
-      if(rowcount == 0)
-        fprintf(outfile,"# b0az b0za b0ra b0dec b1az b1za b1ra b1dec, etc\n");
+	if(rowcount == 0)
+	  fprintf(outfile,"#feed_ang   b0az b0za b0ra b0dec  b1az b1za b1ra b1dec, etc\n");
 
 	//printf("row: %d  feed_ang: %f  tel_az: %f tel_zen: %f ra_sub: %f dec_sub: %f\n", rowcount, pfin.sub.feed_ang, pfin.sub.tel_az, pfin.sub.tel_zen, pfin.sub.ra, pfin.sub.dec);
 	//NOTE: ra_sub is in degrees, while alfa_position wants the ra in hours
@@ -159,43 +163,45 @@ int main(int argc, char** argv)
 	dec_sub[0][rowcount] = pfin.sub.dec;
 	glon_sub[0][rowcount] = pfin.sub.glon;
 	glat_sub[0][rowcount] = pfin.sub.glat;
-
+	
 	decdd = pfin.sub.dec;
 	rahh = pfin.sub.ra/360.0 * 24.0;
-
+	
 	for(beam=1; beam<NUMFILES; beam++) {
-        alfa_position(rahh, decdd, pfin.sub.lst/3600.0, 
-                      current_epoch, pfin.sub.feed_ang, 
-                      0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], 
-                      &beamaz, &beamza);
+	  alfa_position(rahh, decdd, pfin.sub.lst/3600.0, 
+			current_epoch, pfin.sub.feed_ang, 
+			0.0, 0.0, beam, &beamrahh[beam], &beamdecdd[beam], 
+			&beamaz, &beamza);
 	  
 	  //Save this row's RA, DEC, AZ & ZA, GL & GB
 	  tel_az[beam][rowcount] = (float)beamaz;
 	  tel_zen[beam][rowcount] = (float)beamza;
 	  ra_sub[beam][rowcount] = beamrahh[beam]/24.0 * 360.0;
 	  dec_sub[beam][rowcount] = beamdecdd[beam];
-
+	  
 	  glgb(ra_sub[beam][rowcount], dec_sub[beam][rowcount], 
-           &glon_sub[beam][rowcount],&glat_sub[beam][rowcount]);
+	       &glon_sub[beam][rowcount],&glat_sub[beam][rowcount]);
 
-	  //Convert beam RA & DEC from 1st row to strings to put in side 
-	  //beam main HDU
-	  if(rowcount == 0) {
-	    beamrastr = deg2ddmmss(beamrahh[beam],0);
-	    beamdecstr = deg2ddmmss(beamdecdd[beam],1);
-	  }
 	}
-	      
+	
 	//Print positions for all beams to debugging file
 	for(beam=0; beam<NUMFILES; beam++) {
-        fprintf(outfile,"%f %f %f %f %f %f ",tel_az[beam][rowcount],tel_zen[beam][rowcount],ra_sub[beam][rowcount],dec_sub[beam][rowcount],glon_sub[beam][rowcount],glat_sub[beam][rowcount]);
+	  fprintf(outfile,"%f   %f %f %f %f %f %f   ",pfin.sub.feed_ang, tel_az[beam][rowcount],tel_zen[beam][rowcount],ra_sub[beam][rowcount],dec_sub[beam][rowcount],glon_sub[beam][rowcount],glat_sub[beam][rowcount]);
 	}
 	fprintf(outfile,"\n");
-    
+	
 	rowcount++;
       }
 
-      //Print fits file name & position for Patrick's script
+      //Print warning if tracked position of beam 0 has drifted between the first and last row
+      posdiff = fabs(ra_sub[0][0]-ra_sub[0][numrows-1])*60.0;
+      if(posdiff > DRIFTTOL)
+	fprintf(stderr,"WARNING: Beam0 RA drifted by %f arcmin between start and end of observation!\n",posdiff);
+      posdiff = fabs(dec_sub[0][0]-dec_sub[0][numrows-1])*60.0;
+      if(posdiff > DRIFTTOL)
+	fprintf(stderr,"WARNING: Beam0 DEC drifted by %f arcmin between start and end of observation!\n",posdiff);
+      
+      //Print fits file name & position for Patrick's script (for beam 0, Old & New are the same)
       fprintf(stdout,"%s  %s  Old  %s  %s  %f  %f\n",pfin.filename,ibeam,pfin.hdr.ra_str, pfin.hdr.dec_str, ra_sub[beamnum][0],dec_sub[beamnum][0]);
       fprintf(stdout,"%s  %s  New  %s  %s  %f  %f\n",pfin.filename,ibeam,pfin.hdr.ra_str, pfin.hdr.dec_str, ra_sub[beamnum][0],dec_sub[beamnum][0]);
 
@@ -220,11 +226,9 @@ int main(int argc, char** argv)
       hdrverf = atof(hdrver);
       //printf("hdrver: %f\n",hdrverf);
       
-      //Convert this beam's RA & DEC to strings
-      beamrastr = deg2ddmmss(beamrahh[beamnum],0);
-      beamdecstr = deg2ddmmss(beamdecdd[beamnum],1);
-      //printf("beam: %d  ra: %s  dec: %s\n", ii,beamrastr,beamdecstr);
-      
+      //Convert this beam's 1st row RA & DEC to strings
+      beamrastr = deg2ddmmss(ra_sub[beamnum][0]/360.0 * 24.0,0);
+      beamdecstr = deg2ddmmss(dec_sub[beamnum][0],1);
 
       //UNCOMMENT FOR RELEASE!!!
       if (fabs(hdrverf-HDRVERGOOD) < 0.001) {
